@@ -28,37 +28,45 @@ def debug_show_image(image, title="Image", wait_ms=0):
 class QuarterDetector:
     """Detect quarters and classify heads vs tails using template matching."""
     
-    def __init__(self, heads_template=None, threshold=0.6):
+    def __init__(self, heads_template=None, tails_template=None):
         """
         Initialize the detector.
         
         Args:
             heads_template: Path to heads reference template image
-            threshold: Confidence threshold for heads classification (0.0-1.0)
+            tails_template: Path to tails reference template image
         """
         self.heads_template = None
-        self.threshold = threshold
+        self.tails_template = None
         
         if heads_template and Path(heads_template).exists():
             self.load_template(heads_template, 'heads')
+        
+        if tails_template and Path(tails_template).exists():
+            self.load_template(tails_template, 'tails')
     
-    def load_template(self, template_path, coin_type='heads'):
+    def load_template(self, template_path, coin_type):
         """
-        Load a reference heads template image.
+        Load a reference template image.
         
         Args:
             template_path: Path to template image
-            coin_type: Type label (default 'heads')
+            coin_type: 'heads' or 'tails'
         """
         template = cv2.imread(str(template_path))
         if template is None:
-            print(f"Error: Could not load template from {template_path}")
+            print(f"Error: Could not load {coin_type} template from {template_path}")
             return
         
         # Resize template to standard size
         template = cv2.resize(template, (200, 200))
-        self.heads_template = template
-        print(f"Heads template loaded from {template_path}")
+        
+        if coin_type == 'heads':
+            self.heads_template = template
+            print(f"Heads template loaded from {template_path}")
+        elif coin_type == 'tails':
+            self.tails_template = template
+            print(f"Tails template loaded from {template_path}")
     
     def detect_coin(self, image):
         """
@@ -115,8 +123,8 @@ class QuarterDetector:
             print(f"Warning: Detected coin too small (size={size}px). Skipping.")
             return None
             
-        top_left_x = max(0, x - radius - 10)
-        top_left_y = max(0, y - radius - 10)
+        top_left_x = np.clip(x.astype(np.int32) - radius - 10,0,65535)
+        top_left_y = np.clip(y.astype(np.int32) - radius - 10,0,65535)
         bottom_right_x = min(image.shape[1], top_left_x + size)
         bottom_right_y = min(image.shape[0], top_left_y + size)
         
@@ -131,22 +139,22 @@ class QuarterDetector:
     
     def classify_heads_tails(self, coin_image):
         """
-        Classify coin as heads or tails using heads template matching.
-        If confidence exceeds threshold, it's heads. Otherwise, it's tails.
+        Classify coin as heads or tails using template matching.
+        Compares against both templates and picks the best match.
         
         Args:
             coin_image: Extracted coin image
             
         Returns:
-            Tuple of (prediction, confidence)
+            Tuple of (label, confidence, heads_score, tails_score)
         """
-        if self.heads_template is None:
-            print("Error: Heads template not loaded. Please provide heads template.")
-            return None, 0.0
+        if self.heads_template is None or self.tails_template is None:
+            print("Error: Both heads and tails templates required.")
+            return None, 0.0, 0.0, 0.0
         
         if coin_image is None or coin_image.size == 0:
             print("Error: Invalid coin image.")
-            return None, 0.0
+            return None, 0.0, 0.0, 0.0
         
         # Resize coin image to match template size
         coin_resized = cv2.resize(coin_image, (200, 200))
@@ -154,22 +162,29 @@ class QuarterDetector:
         # Convert to grayscale for matching
         coin_gray = cv2.cvtColor(coin_resized, cv2.COLOR_BGR2GRAY) if len(coin_resized.shape) == 3 else coin_resized
         heads_gray = cv2.cvtColor(self.heads_template, cv2.COLOR_BGR2GRAY) if len(self.heads_template.shape) == 3 else self.heads_template
+        tails_gray = cv2.cvtColor(self.tails_template, cv2.COLOR_BGR2GRAY) if len(self.tails_template.shape) == 3 else self.tails_template
         
         # Normalize images for better matching
         coin_gray = cv2.normalize(coin_gray, None, 0, 255, cv2.NORM_MINMAX)
         heads_gray = cv2.normalize(heads_gray, None, 0, 255, cv2.NORM_MINMAX)
+        tails_gray = cv2.normalize(tails_gray, None, 0, 255, cv2.NORM_MINMAX)
         
-        # Compute template matching score using correlation coefficient
+        # Compute template matching scores using correlation coefficient
         heads_match = cv2.matchTemplate(coin_gray, heads_gray, cv2.TM_CCOEFF_NORMED)
-        heads_score = np.max(heads_match)
+        tails_match = cv2.matchTemplate(coin_gray, tails_gray, cv2.TM_CCOEFF_NORMED)
         
-        # Classify based on threshold
-        if heads_score >= self.threshold:
+        heads_score = np.max(heads_match)
+        tails_score = np.max(tails_match)
+        
+        # Classify based on best match
+        if heads_score > tails_score:
             label = "Heads"
+            confidence = heads_score
         else:
             label = "Tails"
+            confidence = tails_score
         
-        return label, heads_score
+        return label, confidence, heads_score, tails_score
     
     def process_image(self, image_path):
         """
@@ -199,14 +214,16 @@ class QuarterDetector:
             return None
         
         # Classify
-        label, confidence = self.classify_heads_tails(coin_region)
+        label, confidence, heads_score, tails_score = self.classify_heads_tails(coin_region)
         
         result = {
             'image_path': str(image_path),
             'coin_detected': True,
             'coin_position': coin_info,
             'classification': label,
-            'confidence': confidence
+            'confidence': confidence,
+            'heads_score': heads_score,
+            'tails_score': tails_score
         }
         
         return result
@@ -218,8 +235,8 @@ class QuarterDetector:
         Args:
             display: Whether to display results
         """
-        if self.heads_template is None:
-            print("Error: Heads template not loaded. Please provide heads template.")
+        if self.heads_template is None or self.tails_template is None:
+            print("Error: Both heads and tails templates required.")
             return
         
         cap = cv2.VideoCapture(0)
@@ -243,12 +260,14 @@ class QuarterDetector:
                 
                 # Extract and classify
                 coin_region = self.extract_coin_region(frame, coin_info)
-                label, confidence = self.classify_heads_tails(coin_region)
+                label, confidence, heads_score, tails_score = self.classify_heads_tails(coin_region)
                 
                 # Draw results
                 cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
                 cv2.putText(frame, f"{label} ({confidence:.2f})", (x - 50, y - radius - 20),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(frame, f"H:{heads_score:.2f} T:{tails_score:.2f}", (x - 50, y - radius - 50),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 200, 100), 1)
             else:
                 cv2.putText(frame, "No coin detected", (20, 40),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)

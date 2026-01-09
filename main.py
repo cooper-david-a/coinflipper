@@ -12,33 +12,33 @@ def main():
     detect_parser = subparsers.add_parser('detect', help='Detect quarter in image')
     detect_parser.add_argument('image', help='Path to image file')
     detect_parser.add_argument('--heads', help='Path to heads template image', required=True)
-    detect_parser.add_argument('--threshold', type=float, default=0.6, 
-                              help='Confidence threshold for heads classification (0.0-1.0)')
+    detect_parser.add_argument('--tails', help='Path to tails template image', required=True)
     
     # Camera command for real-time detection
     camera_parser = subparsers.add_parser('camera', help='Real-time detection from camera')
     camera_parser.add_argument('--heads', help='Path to heads template image', required=True)
-    camera_parser.add_argument('--threshold', type=float, default=0.6,
-                              help='Confidence threshold for heads classification (0.0-1.0)')
+    camera_parser.add_argument('--tails', help='Path to tails template image', required=True)
     
     args = parser.parse_args()
     
     if args.command == 'detect':
         # Detect mode
-        detector = QuarterDetector(heads_template=args.heads, threshold=args.threshold)
+        detector = QuarterDetector(heads_template=args.heads, tails_template=args.tails)
         result = detector.process_image(args.image)
         
         if result:
             print(f"\n✓ Coin detected!")
             print(f"  Classification: {result['classification']}")
             print(f"  Confidence: {result['confidence']:.2%}")
+            print(f"  Heads Score: {result['heads_score']:.4f}")
+            print(f"  Tails Score: {result['tails_score']:.4f}")
             print(f"  Position: {result['coin_position']}")
         else:
             print("\n✗ Could not detect coin in image")
     
     elif args.command == 'camera':
         # Camera mode
-        detector = QuarterDetector(heads_template=args.heads, threshold=args.threshold)
+        detector = QuarterDetector(heads_template=args.heads, tails_template=args.tails)
         print("Starting camera detection...")
         detector.process_camera()
     

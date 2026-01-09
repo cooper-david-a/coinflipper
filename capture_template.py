@@ -82,7 +82,7 @@ def capture_template(output_path='heads_ref.jpg'):
                 
                 if coin_region is not None:
                     captured_frame = coin_region
-                    cv2.circle(frame, (x, y), radius, (0, 255, 0), 3)
+                    #cv2.circle(frame, (x, y), radius, (0, 255, 0), 3)
                     cv2.putText(frame, "Saving...", (20, 40),
                                font, 1, (0, 255, 0), 2)
                 
