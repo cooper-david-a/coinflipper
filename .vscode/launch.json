@@ -18,7 +18,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/main.py",
       "console": "integratedTerminal",
-      "args": ["camera", "--heads", "heads_ref.jpg", "--threshold", "0.6"]
+      "args": ["camera", "--heads", "heads_ref.jpg", "--threshold", "0.2"]
     },
     {
       "name": "Python Debugger: Current File",
