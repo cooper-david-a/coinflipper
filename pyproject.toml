@@ -1,10 +1,16 @@
 [project]
-name = "coinflipper"
+name = "spyder-env"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "matplotlib>=3.10.8",
+    "onnx>=1.20.1",
+    "onnxscript>=0.5.7",
     "opencv-python>=4.12.0.88",
-    "numpy>=1.24.0",
+    "pandas>=2.3.3",
+    "spyder>=6.1.2",
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
 ]

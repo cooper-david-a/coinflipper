@@ -28,9 +28,9 @@
       "args": [
         "camera",
         "--heads",
-        "./templates/heads_03.jpg",
+        "./templates/heads_02.jpg",
         "--tails",
-        "./templates/tails_02.jpg"
+        "./templates/tails_01.jpg"
       ]
     },
     {
